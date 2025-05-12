@@ -115,3 +115,8 @@ askraska-site.ssh*
 
 # Upload directory
 uploads/
+
+# SSH keys
+*.ssh
+*.ssh.pub
+~/.ssh/
