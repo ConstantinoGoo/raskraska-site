@@ -4,6 +4,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const previewImage = document.getElementById('previewImage');
     const resultImage = document.getElementById('resultImage');
     const loader = document.getElementById('loader');
+    const lightButton = document.getElementById('lightButton');
+    const proButton = document.getElementById('proButton');
 
     // Предпросмотр выбранного изображения
     imageInput.addEventListener('change', function(e) {
@@ -14,17 +16,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 previewImage.src = e.target.result;
                 previewImage.style.display = 'block';
                 resultImage.style.display = 'none'; // Скрываем предыдущий результат
+                
+                // Показываем кнопки после выбора изображения
+                lightButton.style.display = 'inline-block';
+                proButton.style.display = 'inline-block';
             }
             reader.readAsDataURL(file);
         }
     });
 
-    // Обработка отправки формы
-    uploadForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
+    // Функция для обработки изображения
+    function processImage(mode) {
+        if (!imageInput.files[0]) {
+            alert('Пожалуйста, выберите изображение');
+            return;
+        }
+
         const formData = new FormData(uploadForm);
+        formData.append('mode', mode); // Добавляем режим обработки
         loader.style.display = 'flex';
+
+        // Обновляем текст загрузки в зависимости от режима
+        const loaderText = loader.querySelector('p');
+        loaderText.textContent = mode === 'light' ? 
+            'Создаём раскраску...' : 
+            'Создаём раскраску с помощью AI...';
 
         fetch('/upload', {
             method: 'POST',
@@ -33,7 +49,11 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.error) {
-                alert(data.error);
+                if (data.error.includes('billing_hard_limit_reached')) {
+                    alert('Достигнут лимит использования AI. Пожалуйста, попробуйте Light версию или повторите позже.');
+                } else {
+                    alert(data.error);
+                }
                 return;
             }
             // Отображаем результат
@@ -47,5 +67,16 @@ document.addEventListener('DOMContentLoaded', function() {
         .finally(() => {
             loader.style.display = 'none';
         });
+    }
+
+    // Обработчики для кнопок
+    lightButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        processImage('light');
+    });
+
+    proButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        processImage('pro');
     });
 }); 

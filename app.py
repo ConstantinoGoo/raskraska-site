@@ -1,10 +1,24 @@
 from flask import Flask, render_template, request, send_from_directory, jsonify
 import os
 from ai_processor import process_image
+from image_processor import process_image_locally  # Добавляем импорт локальной обработки
 from dotenv import load_dotenv
+import logging
+import argparse
 
 # Загружаем переменные окружения из .env файла
 load_dotenv()
+
+# Настраиваем логирование
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('flask.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -17,7 +31,7 @@ for folder in [UPLOAD_FOLDER, RESULT_FOLDER]:
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['RESULT_FOLDER'] = RESULT_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Максимальный размер файла 16MB
+app.config['MAX_CONTENT_LENGTH'] = 4 * 1024 * 1024  # Максимальный размер файла 4MB
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
@@ -30,20 +44,30 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload_image():
-    if 'image' not in request.files:
-        return jsonify({'error': 'Файл не был загружен'}), 400
-    
-    file = request.files['image']
-    if file.filename == '':
-        return jsonify({'error': 'Файл не был выбран'}), 400
-    
-    if file and allowed_file(file.filename):
+    try:
+        if 'image' not in request.files:
+            return jsonify({'error': 'Файл не был загружен'}), 400
+        
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({'error': 'Файл не был выбран'}), 400
+        
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'Недопустимый формат файла. Разрешены только PNG и JPEG'}), 400
+        
         # Сохраняем оригинальное изображение
         input_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
         file.save(input_path)
+        logger.debug(f"Файл сохранен: {input_path}")
         
-        # Создаем раскраску используя AI
-        result_filename = process_image(input_path, app.config['RESULT_FOLDER'])
+        # Получаем режим обработки
+        mode = request.form.get('mode', 'light')
+        
+        # Обрабатываем изображение в зависимости от режима
+        if mode == 'pro':
+            result_filename = process_image(input_path, app.config['RESULT_FOLDER'])
+        else:  # light mode
+            result_filename = process_image_locally(input_path, app.config['RESULT_FOLDER'])
         
         if result_filename:
             result_url = f'/results/{result_filename}'
@@ -52,23 +76,43 @@ def upload_image():
                 'result_url': result_url
             })
         else:
-            return jsonify({'error': 'Ошибка при обработке изображения'}), 500
-    
-    return jsonify({'error': 'Недопустимый формат файла'}), 400
+            error_msg = 'Ошибка при обработке изображения'
+            if mode == 'pro':
+                error_msg = 'Ошибка при обработке изображения через AI. Попробуйте использовать Light версию.'
+            return jsonify({'error': error_msg}), 500
+            
+    except Exception as e:
+        logger.error(f"Ошибка при загрузке файла: {str(e)}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/results/<filename>')
 def get_result(filename):
-    return send_from_directory(app.config['RESULT_FOLDER'], filename)
+    try:
+        return send_from_directory(app.config['RESULT_FOLDER'], filename)
+    except Exception as e:
+        logger.error(f"Ошибка при получении результата: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Файл не найден'}), 404
 
-@app.route('/generate', methods=['POST'])
-def generate_image():
-    prompt = request.form.get('prompt', '')
-    if not prompt:
-        return jsonify({'error': 'Не указан текст для генерации'}), 400
-    
-    # TODO: Здесь будет логика генерации раскраски
-    return jsonify({'message': 'Генерация раскраски по запросу завершена!'})
+def get_available_port(start_port, max_attempts=10):
+    """Находит свободный порт, начиная с указанного"""
+    import socket
+    for port in range(start_port, start_port + max_attempts):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(('127.0.0.1', port))
+                return port
+        except OSError:
+            continue
+    raise OSError(f"Не удалось найти свободный порт в диапазоне {start_port}-{start_port + max_attempts - 1}")
 
 if __name__ == "__main__":
-    print("Starting server at http://127.0.0.1:5000")
-    app.run(host='127.0.0.1', port=5000, debug=True) 
+    parser = argparse.ArgumentParser(description='Запуск сервера для создания раскрасок')
+    parser.add_argument('--port', type=int, default=8080, help='Порт для запуска сервера (по умолчанию: 8080)')
+    args = parser.parse_args()
+    
+    try:
+        port = get_available_port(args.port)
+        logger.info(f"Starting server at http://127.0.0.1:{port}")
+        app.run(host='127.0.0.1', port=port, debug=True)
+    except Exception as e:
+        logger.error(f"Ошибка при запуске сервера: {str(e)}", exc_info=True) 
