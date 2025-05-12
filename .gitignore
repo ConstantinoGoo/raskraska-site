@@ -47,3 +47,9 @@ results/
 # Other
 .DS_Store
 node_modules/
+
+# SSH keys
+askraska-site.ssh*
+
+# Upload directory
+uploads/
