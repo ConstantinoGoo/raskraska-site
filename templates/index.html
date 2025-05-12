@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Раскраска.рф — создавай раскраски онлайн!</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Раскраска.рф</h1>
+            <p class="subtitle">Создавайте раскраски из ваших фотографий или генерируйте новые!</p>
+        </header>
+
+        <main>
+            <section class="upload-section">
+                <h2>1️⃣ Превратить фото в раскраску</h2>
+                <form action="/upload" method="post" enctype="multipart/form-data" class="upload-form">
+                    <div class="file-input-container">
+                        <input type="file" id="imageInput" name="image" accept="image/*" required>
+                        <label for="imageInput" class="file-label">Выберите файл</label>
+                    </div>
+                    <img id="previewImage" alt="Предпросмотр">
+                    <button type="submit" class="submit-btn">Создать раскраску</button>
+                </form>
+            </section>
+
+            <section class="generate-section">
+                <h2>2️⃣ Сгенерировать раскраску</h2>
+                <form action="/generate" method="post" class="generate-form">
+                    <input type="text" 
+                           name="prompt" 
+                           placeholder="Например: котёнок в шляпе" 
+                           required>
+                    <button type="submit" class="submit-btn">Сгенерировать</button>
+                </form>
+            </section>
+        </main>
+
+        <div id="loader" class="loader" style="display:none;">
+            <div class="spinner"></div>
+            <p>Обработка изображения...</p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html> 
