@@ -1,63 +1,50 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadForm = document.getElementById('uploadForm');
     const imageInput = document.getElementById('imageInput');
     const previewImage = document.getElementById('previewImage');
+    const resultImage = document.getElementById('resultImage');
     const loader = document.getElementById('loader');
-    const uploadForm = document.querySelector('.upload-form');
-    const generateForm = document.querySelector('.generate-form');
 
-    // Предпросмотр загруженного изображения
-    imageInput.addEventListener('change', () => {
-        const file = imageInput.files[0];
+    // Предпросмотр выбранного изображения
+    imageInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onload = function(e) {
                 previewImage.src = e.target.result;
                 previewImage.style.display = 'block';
-            };
+                resultImage.style.display = 'none'; // Скрываем предыдущий результат
+            }
             reader.readAsDataURL(file);
         }
     });
 
-    // Обработка отправки формы загрузки
-    uploadForm.addEventListener('submit', (e) => {
+    // Обработка отправки формы
+    uploadForm.addEventListener('submit', function(e) {
         e.preventDefault();
-        loader.style.display = 'flex';
         
         const formData = new FormData(uploadForm);
+        loader.style.display = 'flex';
+
         fetch('/upload', {
             method: 'POST',
             body: formData
         })
-        .then(response => response.text())
+        .then(response => response.json())
         .then(data => {
-            alert(data);
-            loader.style.display = 'none';
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+            // Отображаем результат
+            resultImage.src = data.result_url;
+            resultImage.style.display = 'block';
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Произошла ошибка при загрузке файла');
-            loader.style.display = 'none';
-        });
-    });
-
-    // Обработка отправки формы генерации
-    generateForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        loader.style.display = 'flex';
-        
-        const formData = new FormData(generateForm);
-        fetch('/generate', {
-            method: 'POST',
-            body: formData
+            alert('Произошла ошибка при обработке изображения');
         })
-        .then(response => response.text())
-        .then(data => {
-            alert(data);
-            loader.style.display = 'none';
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Произошла ошибка при генерации раскраски');
+        .finally(() => {
             loader.style.display = 'none';
         });
     });
