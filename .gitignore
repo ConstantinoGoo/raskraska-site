@@ -24,18 +24,34 @@ wheels/
 # Virtual Environment
 venv/
 ENV/
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
+.*.sw[po]
 
-# Logs
+# Logs and databases
 *.log
+*.sqlite
+*.db
 
-# Environment variables
+# Environment variables and secrets
 .env
+.env.*
+!.env.example
+*.key
+*.pem
+*.pub
 
 # Test files and results
 test_images/
@@ -43,6 +59,52 @@ test_results/
 test_samples/
 test_output.jpg
 results/
+uploads/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node modules (if using any frontend build tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+coverage.xml
+*.cover
+
+# SSH keys and certificates
+*.ssh
+*.key
+*.pem
+*.crt
+*.cer
+*.der
+*.priv
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
 
 # Other
 .DS_Store
