@@ -3,21 +3,52 @@ import sys
 import cv2
 import numpy as np
 import logging
+import shutil
 from datetime import datetime
 import matplotlib.pyplot as plt
+from pathlib import Path
 from app.processors.image_processor import ImageType, process_image_locally, classify_image
 from app.processors.ai_processor import process_image
+
+# Определяем базовые пути
+BASE_DIR = Path(__file__).parent
+TEST_DATA_DIR = BASE_DIR / 'data'
+TEST_SAMPLES_DIR = TEST_DATA_DIR / 'test_samples'
+TEST_IMAGES_DIR = TEST_DATA_DIR / 'test_images'
+TEST_RESULTS_DIR = TEST_DATA_DIR / 'test_results'
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('tests/auto_tester.log'),
+        logging.FileHandler(BASE_DIR / 'auto_tester.log'),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
+
+def setup_test_environment():
+    """Создает необходимые директории для тестов"""
+    dirs_to_create = [
+        TEST_DATA_DIR,
+        TEST_SAMPLES_DIR,
+        TEST_IMAGES_DIR,
+        TEST_RESULTS_DIR
+    ]
+    
+    for dir_path in dirs_to_create:
+        dir_path.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Created directory: {dir_path}")
+
+def cleanup_test_environment():
+    """Очищает временные файлы после тестов"""
+    try:
+        if TEST_RESULTS_DIR.exists():
+            shutil.rmtree(TEST_RESULTS_DIR)
+            logger.debug(f"Cleaned up test results directory: {TEST_RESULTS_DIR}")
+    except Exception as e:
+        logger.error(f"Error cleaning up test environment: {e}")
 
 def display_images(original_path, result_path=None, title="Test Image"):
     """Display original image and its processing result side by side"""
@@ -45,17 +76,17 @@ def display_images(original_path, result_path=None, title="Test Image"):
 def check_test_data():
     """Check if all required test data is present"""
     required_files = [
-        'tests/data/test_samples/cartoon1.jpg',
-        'tests/data/test_samples/photo1.jpg',
-        'tests/data/test_samples/sketch1.jpg',
-        'tests/data/test_samples/logo1.png',
-        'tests/data/test_images/jessica.jpeg',
-        'tests/data/test_images/spider-man.jpeg'
+        TEST_SAMPLES_DIR / 'cartoon1.jpg',
+        TEST_SAMPLES_DIR / 'photo1.jpg',
+        TEST_SAMPLES_DIR / 'sketch1.jpg',
+        TEST_SAMPLES_DIR / 'logo1.png',
+        TEST_IMAGES_DIR / 'jessica.jpeg',
+        TEST_IMAGES_DIR / 'spider-man.jpeg'
     ]
     
     missing_files = []
     for file_path in required_files:
-        if not os.path.exists(file_path):
+        if not file_path.exists():
             missing_files.append(file_path)
     
     if missing_files:
@@ -70,10 +101,10 @@ def check_test_data():
 def test_image_classification():
     """Test image type classification accuracy"""
     test_cases = {
-        'tests/data/test_samples/cartoon1.jpg': ImageType.CARTOON,
-        'tests/data/test_samples/photo1.jpg': ImageType.PHOTO,
-        'tests/data/test_samples/sketch1.jpg': ImageType.SKETCH,
-        'tests/data/test_samples/logo1.png': ImageType.LOGO
+        TEST_SAMPLES_DIR / 'cartoon1.jpg': ImageType.CARTOON,
+        TEST_SAMPLES_DIR / 'photo1.jpg': ImageType.PHOTO,
+        TEST_SAMPLES_DIR / 'sketch1.jpg': ImageType.SKETCH,
+        TEST_SAMPLES_DIR / 'logo1.png': ImageType.LOGO
     }
     
     success = 0
@@ -81,20 +112,20 @@ def test_image_classification():
     
     for image_path, expected_type in test_cases.items():
         try:
-            image = cv2.imread(image_path)
+            image = cv2.imread(str(image_path))
             if image is None:
                 logger.error(f"Could not read image: {image_path}")
                 continue
             
             # Display test image
-            display_images(image_path, title=f"Test Classification: {expected_type.value}")
+            display_images(str(image_path), title=f"Test Classification: {expected_type.value}")
             
             detected_type = classify_image(image)
             if detected_type == expected_type:
                 success += 1
-                logger.info(f"✓ Correctly classified {image_path} as {detected_type.value}")
+                logger.info(f"✓ Correctly classified {image_path.name} as {detected_type.value}")
             else:
-                logger.error(f"✗ Misclassified {image_path} as {detected_type.value}, expected {expected_type.value}")
+                logger.error(f"✗ Misclassified {image_path.name} as {detected_type.value}, expected {expected_type.value}")
             
         except Exception as e:
             logger.error(f"Error testing {image_path}: {str(e)}")
@@ -106,30 +137,30 @@ def test_image_classification():
 def test_image_processing():
     """Test image processing quality"""
     test_images = [
-        'tests/data/test_images/jessica.jpeg',
-        'tests/data/test_images/spider-man.jpeg'
+        TEST_IMAGES_DIR / 'jessica.jpeg',
+        TEST_IMAGES_DIR / 'spider-man.jpeg'
     ]
     
     results = {}
     for image_path in test_images:
         try:
             # Process image
-            output_dir = 'tests/data/test_results'
-            os.makedirs(output_dir, exist_ok=True)
+            TEST_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
             
-            result_filename = process_image_locally(image_path, output_dir)
+            result_filename = process_image_locally(str(image_path), str(TEST_RESULTS_DIR))
             if not result_filename:
                 logger.error(f"Failed to process {image_path}")
                 continue
             
-            result_path = os.path.join(output_dir, result_filename)
+            result_path = TEST_RESULTS_DIR / result_filename
             
             # Display original and result
-            display_images(image_path, result_path, title=f"Processing Result: {os.path.basename(image_path)}")
+            display_images(str(image_path), str(result_path), 
+                         title=f"Processing Result: {image_path.name}")
             
             # Evaluate result
-            original = cv2.imread(image_path)
-            result = cv2.imread(result_path)
+            original = cv2.imread(str(image_path))
+            result = cv2.imread(str(result_path))
             
             if original is None or result is None:
                 logger.error(f"Could not read images for {image_path}")
@@ -144,7 +175,7 @@ def test_image_processing():
             quality_score = (edge_score + clarity_score + (100 - artifact_score)) / 3
             results[image_path] = quality_score
             
-            logger.info(f"Results for {os.path.basename(image_path)}:")
+            logger.info(f"Results for {image_path.name}:")
             logger.info(f"Edge preservation: {edge_score:.1f}%")
             logger.info(f"Line clarity: {clarity_score:.1f}%")
             logger.info(f"Artifact score: {artifact_score:.1f}%")
@@ -175,7 +206,7 @@ def evaluate_edge_preservation(original, result):
             
         similarity = np.sum(intersection) / np.sum(union) * 100
         return similarity
-        
+            
     except Exception as e:
         logger.error(f"Error in edge preservation evaluation: {str(e)}")
         return 0
@@ -201,7 +232,7 @@ def evaluate_line_clarity(result):
             
         clarity = np.mean(gradient[edges > 0])
         return clarity
-        
+            
     except Exception as e:
         logger.error(f"Error in line clarity evaluation: {str(e)}")
         return 0
@@ -233,35 +264,45 @@ def evaluate_artifacts(result):
 if __name__ == "__main__":
     logger.info("Starting automated tests...")
     
-    # Check test data
-    if not check_test_data():
-        logger.error("Cannot proceed with tests - missing test data")
-        sys.exit(1)
-    
-    # Test image classification
-    logger.info("\nTesting image classification...")
-    classification_accuracy = test_image_classification()
-    
-    # Test image processing
-    logger.info("\nTesting image processing...")
-    processing_results = test_image_processing()
-    
-    # Print summary
-    logger.info("\nTest Summary:")
-    logger.info(f"Classification Accuracy: {classification_accuracy:.1f}%")
-    logger.info("Processing Quality Scores:")
-    for image, score in processing_results.items():
-        logger.info(f"{os.path.basename(image)}: {score:.1f}%")
-    
-    # Determine overall success
-    classification_threshold = 80
-    processing_threshold = 85
-    
-    all_processing_scores_good = all(score >= processing_threshold for score in processing_results.values())
-    
-    if classification_accuracy >= classification_threshold and all_processing_scores_good:
-        logger.info("\n✓ All tests passed successfully!")
-        sys.exit(0)
-    else:
-        logger.error("\n✗ Some tests did not meet quality thresholds")
-        sys.exit(1) 
+    try:
+        # Подготавливаем окружение для тестов
+        setup_test_environment()
+        
+        # Check test data
+        if not check_test_data():
+            logger.error("Cannot proceed with tests - missing test data")
+            sys.exit(1)
+
+        # Test image classification
+        logger.info("\nTesting image classification...")
+        classification_accuracy = test_image_classification()
+        
+        # Test image processing
+        logger.info("\nTesting image processing...")
+        processing_results = test_image_processing()
+        
+        # Print summary
+        logger.info("\nTest Summary:")
+        logger.info(f"Classification Accuracy: {classification_accuracy:.1f}%")
+        logger.info("Processing Quality Scores:")
+        for image, score in processing_results.items():
+            logger.info(f"{image.name}: {score:.1f}%")
+        
+        # Determine overall success
+        classification_threshold = 80
+        processing_threshold = 85
+        
+        all_processing_scores_good = all(score >= processing_threshold 
+                                       for score in processing_results.values())
+        
+        if classification_accuracy >= classification_threshold and all_processing_scores_good:
+            logger.info("\n✓ All tests passed successfully!")
+            exit_code = 0
+        else:
+            logger.error("\n✗ Some tests did not meet quality thresholds")
+            exit_code = 1
+            
+    finally:
+        # Очищаем временные файлы
+        cleanup_test_environment()
+        sys.exit(exit_code) 
